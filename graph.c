@@ -89,7 +89,6 @@ void print_plane(Pixel **display) {
 
     for(int y = 0; y < WINDOW_HEIGHT; y++) {
         puts(output[y]);
-        sleep(1);
     }
 
     for(int i = 0; i <= WINDOW_HEIGHT; i++)
