@@ -3,78 +3,88 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <unistd.h>
 
-#define WINDOW_WIDTH (double)200
-#define WINDOW_HEIGHT (double)10
+// window boundaries/resolution.
+#define WINDOW_WIDTH (float) 200
+#define WINDOW_HEIGHT (float) 100
 
-#define XMIN (double)-10
-#define XMAX (double)10
-#define YMIN (double)-10
-#define YMAX (double)10
+// plane boundaries.
+#define XMIN (float) -10
+#define XMAX (float) 10
+#define YMIN (float) -10
+#define YMAX (float) 10
 
-#define PLANE_WIDTH (double)fabs(XMAX - XMIN)
-#define PLANE_HEIGHT (double)fabs(YMAX - YMIN)
+#define PLANE_WIDTH fabs(XMAX - XMIN)
+#define PLANE_HEIGHT fabs(YMAX - YMIN)
 
-typedef struct vec2 {double x, y;} vec2;
-typedef struct Pixel{ vec2 abs_position; char display; } Pixel;
+static float x_steps = (PLANE_WIDTH/WINDOW_WIDTH);
+static float y_steps = (PLANE_HEIGHT/WINDOW_HEIGHT);
+
+typedef struct Pixel{ float x, y; char display; } Pixel;
 
 // FUNCTION TO GRAPH HERE //
-// fabs(sin(pow(x, x)) / pow(2, (pow(x, x)-(3.1415/2))/3.1415)) //
-double function(double x) { return pow(x, 2); }
+float function(float x) { return tan(x); }
+// FUNCTION TO GRAPH HERE //
 
-bool close_to(double x, double y, double deviation) { return fabs(x-y) < deviation; }
+// calculate the derivative of the function given abofe at any given input.
+static float delta = 0.0001;
+float derive(float x) {
+    return (function(x+delta)-function(x-delta)) / ((x+delta)-(x-delta));
+}
 
+// return whether or not a value is close to another value based off of a certain deviation.
+bool close_to(float x, float y, float deviation) { return fabs(x-y) < deviation; }
+
+// converts indices of pixels in a 2d array from absolute positions to positions relative to the origin on the x - y plane.
 void quantify_plane(Pixel **display) {
-    double x_steps = (PLANE_WIDTH/WINDOW_WIDTH);
-    double y_steps = (PLANE_HEIGHT/WINDOW_HEIGHT);
     for(int y = 0; y < WINDOW_HEIGHT; y++) {
         for(int x = 0; x < WINDOW_WIDTH; x++) {
-            *&display[y][x].abs_position.x = (XMIN + (x_steps * x));
-            *&display[y][x].abs_position.y = (YMAX - (y_steps * y));
+            *&display[y][x].x = (XMIN + (x_steps * x));
+            *&display[y][x].y = (YMAX - (y_steps * y));
         }
     }
 }
 
-Pixel **draw(Pixel **display) {
-    double x_steps = (PLANE_WIDTH/WINDOW_WIDTH);
-    double y_steps = (PLANE_HEIGHT/WINDOW_HEIGHT);
-    double abs_x, abs_y;
+// returns a different ascii character based on how close a value is to the end of a range of values.
+char ycompress(float num, float pixel, float range) {
+    char *table = "_,.-~^*`";
+    float steps = range/8;
+    float goal = num - (pixel - (range/2) );
+    int counter = 0;
+    float step = 0;
+    while(step < goal) {
+        step += steps;
+        counter++;
+    }
+    return table[counter - 1];
+}
+
+// sets the display of every pixel to the correct ascii character.
+void draw(Pixel **display, float (*func)(float)) {
+    float rel_x, rel_y;
     for(int y = 0; y < WINDOW_HEIGHT; y++) {
         for(int x = 0; x < WINDOW_WIDTH; x++) {
             Pixel *pixel = &display[y][x];
-            abs_x = pixel -> abs_position.x;
-            abs_y = pixel -> abs_position.y;
-            if(close_to(abs_x, 0, x_steps/2.0)) {
-                if(close_to(abs_y, 0, y_steps/2.0))
+            rel_x = pixel -> x;
+            rel_y = pixel -> y;
+            if(close_to(rel_x, 0, x_steps/2.0)) {
+                if(close_to(rel_y, 0, y_steps/2.0))
                     pixel -> display = '+';
                 else
                     pixel -> display = '|';
             }
-            else if(close_to(abs_y, 0, y_steps/2))
+            else if(close_to(rel_y, 0, y_steps/2))
                 pixel -> display = '-';
             else
                 pixel -> display = ' ';
 
-            if(close_to(function(abs_x), abs_y, y_steps/2.0))
-                pixel -> display = '#';
+            if(close_to(func(rel_x), rel_y, y_steps/2.0))
+                pixel -> display = ycompress(func(rel_x), rel_y, y_steps);
         }
     }
-    return display;
 }
 
-char snap_value(double x, double y, double range) {
-    double test = fabs(y);
-    char *table = "_,.-^*'`";
-    int counter = 0;
-    for(double i = 0; i < range; i += range/8) {
-        if(i < test && (i + (range/8)) >= test)
-            return table[counter];
-        counter++;
-    }
-    return '#';
-}
-
+// prints the display.
 void print_plane(Pixel **display) {
     char **output = malloc(sizeof(char*) * WINDOW_HEIGHT + 1);
     for(int i = 0; i < WINDOW_HEIGHT; i++)
@@ -87,9 +97,8 @@ void print_plane(Pixel **display) {
         output[y][(int)WINDOW_WIDTH] = '\0';
     }
 
-    for(int y = 0; y < WINDOW_HEIGHT; y++) {
+    for(int y = 0; y < WINDOW_HEIGHT; y++)
         puts(output[y]);
-    }
 
     for(int i = 0; i <= WINDOW_HEIGHT; i++)
         free(output[i]);
@@ -103,12 +112,21 @@ void clear_display(Pixel **display) {
 }
 
 int main(void) {
+    // initialize display as multidimensional array of pixels.
     Pixel **display = malloc(sizeof(Pixel *) * WINDOW_HEIGHT);
     for(int i = 0; i < WINDOW_HEIGHT; i++)
         display[i] = malloc(sizeof(Pixel) * WINDOW_WIDTH);
+    
+    // choice to graph derivative or function.
+    char *input = malloc(1);
+    do{
+        printf("Would you like to graph the derivative? (y, n) \n");
+        scanf("%[^\n]%*c", input);
+    } while(input[0] != 'y' && input[0] != 'n');
 
     quantify_plane(display);
-    draw(display);
+    draw(display, input[0] == 'y'? &derive:&function);
+    free(input);
     print_plane(display);
     clear_display(display);
 }
