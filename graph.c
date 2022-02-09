@@ -22,9 +22,7 @@ static float y_steps = (PLANE_HEIGHT/WINDOW_HEIGHT);
 
 typedef struct Pixel{ float x, y; char display; } Pixel;
 
-// FUNCTION TO GRAPH HERE //
-float function(float x) { return tan(x); }
-// FUNCTION TO GRAPH HERE //
+float function(float x) { return pow(x, 2); }
 
 // calculate the derivative of the function given abofe at any given input.
 static float delta = 0.0001;
@@ -47,7 +45,7 @@ void quantify_plane(Pixel **display) {
 
 // returns a different ascii character based on how close a value is to the end of a range of values.
 char ycompress(float num, float pixel, float range) {
-    char *table = "_,.-~^*`";
+    char *table = "_,.-~*'`";
     float steps = range/8;
     float goal = num - (pixel - (range/2) );
     int counter = 0;
